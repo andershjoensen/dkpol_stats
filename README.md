@@ -15,14 +15,11 @@ Automatisk hentning og lagring af alle tweets under hashtagget #dkpol samt stati
 
 ## Todo:
 
-1. Vælg databasetyper/datalagring
-2. Væk rasperry til live
-3. Design database (tabeller: tweets, users, userstats, relations, links)
-4. Find ud af at konvertere Twitter urls til almindelige urls
-5. Lav script, der kan querie twitter for tweets, relationer og stats og lagre i DB
-6. Migrer til rasperry-pi og opsæt cronjobs
+1. Vælg databasetyper/datalagring ✓
+2. Væk rasperry til live ✓
+3. Design database (tabeller: tweets, users, entities) ✓
+4. Migrer til rasperry-pi og opsæt cronjobs
+5. Visualiser med D3
 
 ## På længere sigt
 6. Migrer til cloud?
-7. Berig med CVR-data? Join på mailaddr
-8. Visualiser med D3 og host i cloud? JavaScript-arbejde
