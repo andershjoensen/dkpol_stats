@@ -12,26 +12,6 @@ import time
 
 
 
-def get_user_info(author_id):
-
-    query_params = {'ids': author_id,
-                #'start_time': start_date,
-                #'end_time': end_date,
-                #'max_results': 11,
-                #'expansions': 'author_id,in_reply_to_user_id,geo.place_id',
-                #'tweet.fields': 'id,text,author_id,in_reply_to_user_id,geo,conversation_id,created_at,lang,public_metrics,referenced_tweets,reply_settings,source',
-                'user.fields': 'id,name,username,created_at,description,public_metrics,verified',
-                #'place.fields': 'full_name,id,country,country_code,geo,name,place_type',
-                'next_token': {}
-                }
-
-    response = requests.get(cp.USER_URL, headers=cp.HEADERS, params = query_params)
-
-    print(response.text)
-    #resp_json = response.json()
-
-    #print(resp_json['data'])
-
 
 
 def handle_entities(data):
@@ -84,7 +64,6 @@ def handle_tweet_data(data):
         tweet_extract['referenced_id'] = data['referenced_tweets'][0]['id']
     tweet_extract['created_at'] = datetime.datetime.strptime(data['created_at'],'%Y-%m-%dT%H:%M:%S.000Z')
 
-
     tweet_extract['text'] = data['text']
 
 
@@ -95,11 +74,11 @@ def handle_tweet_data(data):
 
     return tweet_extract
 
-def get_recent_tweets(max_results = 10, next_token = None):
+def get_recent_tweets(max_results = 10, next_token = None, start_time = None):
 
     query_params = {'query': "#dkpol",
-                #'start_time': start_date,
-                #'end_time': end_date,
+                'start_time': start_time,
+                #'end_time': end_time,
                 'max_results': max_results,
                 'tweet.fields': 'entities,id,text,author_id,in_reply_to_user_id,geo,conversation_id,created_at,lang,public_metrics,referenced_tweets,reply_settings,source',
                 'next_token': {next_token}}
@@ -123,6 +102,8 @@ def get_recent_tweets(max_results = 10, next_token = None):
         next_token = resp_json['meta']['next_token']
 
     result_count = resp_json['meta']['result_count']
+
+
     return response.status_code, next_token, result_count, resp_json['data']
 
 
@@ -149,11 +130,22 @@ def handle_all_responses(all_responses):
 
 
 
+
+
 def main():
 
+    latest_timestamp = None
+    append_mode = True
 
-    #get_user_info("23321405")
-    #return
+
+    if append_mode:
+        q = "select max(created_at) from twitter.tweets"
+
+        #timestamp jerkaround to meet ISO 8601/RFC 3339
+        latest_timestamp = str(dm.query_db(q).values[0][0]).split(".")[0] + "Z"
+
+
+
 
     next_token = None
     result_cnt = 0
@@ -161,33 +153,44 @@ def main():
 
     keep_getting_tweets = True
 
+    processed_users = set()
 
     all_responses = []
 
     i = 1
     while keep_getting_tweets:
-        status_code, next_token, n_results, response_list = get_recent_tweets(100, next_token)
+        status_code, next_token, n_results, response_list = get_recent_tweets(100, next_token, latest_timestamp)
 
 
 
 
-        if status_code != 200 or i % 100 == 0:
-            print("the status code is:", status_code,)
+        if status_code != 200 or i % 450 == 0 or next_token is None:
+            print("the status code is:", status_code, ", next_token is", next_token)
             print("Inserting data and sleeping for 20 minutes")
 
 
             #process the data
             tweet_df, entity_df = handle_all_responses(all_responses)
 
+
             #insert data into table
             dm.append_df_to_tbl(tweet_df, "tweets", "twitter", 'append')
-            dm.append_df_to_tbl(tweet_df, "entity_tweets", "twitter", 'append')
+            dm.append_df_to_tbl(entity_df, "entity_tweets", "twitter", 'append')
+            #
 
             #clear
             del all_responses
             all_responses = []
 
+            if next_token is None:
+                #if there are no more tweets
+                print("No next token. Stopping")
+                keep_getting_tweets = False
+                return
+
+
             print("SLEEEPING ")
+
             time.sleep(20 * 60)
             status_code = 200
 
@@ -197,7 +200,7 @@ def main():
 
         result_cnt += n_results
         request_cnt += 1
-        print(result_cnt, "results at,", request_cnt, "requests ")
+        print(result_cnt, "results at", request_cnt, "requests. Latest create_date:", response_list[0]['created_at'])
 
 
 
@@ -206,8 +209,6 @@ def main():
 
 
 
-
-    append_df_to_tbl(tweet_df, "tweets", "twitter", 'replace')
 
 
 if __name__ == '__main__':

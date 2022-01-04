@@ -2,3 +2,5 @@
 config_params.py
 bin/
 lib/
+*.gexf
+*.gephi
