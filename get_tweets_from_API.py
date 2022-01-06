@@ -76,7 +76,7 @@ def handle_tweet_data(data):
 
 def get_recent_tweets(max_results = 10, next_token = None, start_time = None):
 
-    query_params = {'query': "#dkpol",
+    query_params = {'query': "#dkgreen OR #dkklima",
                 'start_time': start_time,
                 #'end_time': end_time,
                 'max_results': max_results,
@@ -135,7 +135,7 @@ def handle_all_responses(all_responses):
 def main():
 
     latest_timestamp = None
-    append_mode = True
+    append_mode = False
 
 
     if append_mode:
@@ -170,17 +170,31 @@ def main():
 
 
             #process the data
+
             tweet_df, entity_df = handle_all_responses(all_responses)
+            print("responses handled. Shape of tweet_df:", tweet_df.shape, "and entity_df: ", entity_df.shape)
+
+            if tweet_df.shape[0] > 0:
+                #sort of lame way of preventing duplicates
+                existing_tweets = set(list(dm.query_db("select distinct tweet_id from twitter.tweets")['tweet_id'].values))
+
+                print(existing_tweets)
+                print(len(existing_tweets), "existing tweets")
+
+                new_tweet_df = tweet_df[~tweet_df['tweet_id'].isin(existing_tweets)]
+                new_entity_df = entity_df[~entity_df['tweet_id'].isin(existing_tweets)]
+
+                print("After duplicate prevention: shape of tweet_df:", new_tweet_df.shape, "and entity_df: ", new_entity_df.shape)
 
 
-            #insert data into table
-            dm.append_df_to_tbl(tweet_df, "tweets", "twitter", 'append')
-            dm.append_df_to_tbl(entity_df, "entity_tweets", "twitter", 'append')
-            #
+                #insert data into table
+                dm.append_df_to_tbl(new_tweet_df, "tweets", "twitter", 'append')
+                dm.append_df_to_tbl(new_entity_df, "entity_tweets", "twitter", 'append')
+                #
 
-            #clear
-            del all_responses
-            all_responses = []
+                #clear
+                del all_responses
+                all_responses = []
 
             if next_token is None:
                 #if there are no more tweets
